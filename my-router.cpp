@@ -10,7 +10,11 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#include "DV.h"
+
 #define BUFSIZE 2048
+
+using namespace std;
 
 // TODO:
 // implement distance vector algorithm
@@ -21,12 +25,20 @@ int main(int argc, char **argv)
 {
     // check for errors
 
-    if (argc < 3) {
-        perror("not enough arguments");
+    if (argc < 3)
+    {
+        perror("Not enough arguments.\nUsage: ./my_router <initialization file> <router name>\n");
         return 0;
     }
 
+
     // initialize everything
+
+    DV dv(argv[1], argv[2]);
+    exit(0);
+
+    // TODO: change to accomodate multiple nodes?
+
 
     int myPort = atoi(argv[1]); // my port; first argument
     int remotePort = atoi(argv[2]); // remote port; second argument
@@ -55,14 +67,16 @@ int main(int argc, char **argv)
     // create a UDP socket
     
     int socketfd; // our socket
-    if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+    if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
         perror("cannot create socket\n");
         return 0;
     }
     
     // bind the socket to localhost and myPort
 
-    if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
+    if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0)
+    {
         perror("bind failed");
         return 0;
     }
@@ -70,23 +84,29 @@ int main(int argc, char **argv)
     // distance vector routing
 
     int pid = fork();
-    if (pid < 0) {
+    if (pid < 0)
+    {
         perror("fork failed");
         return 0;
     }
-    else if (pid == 0) { // child
-        for (;;) {
+    else if (pid == 0) // parent
+    {
+        for (;;)
+        {
             // TODO: send to each neighbor
             sendto(socketfd, sendbuf, strlen(sendbuf), 0, (struct sockaddr *)&remaddr, addrlen);
             sleep(3);
         }
     }
-    else { // parent
-        for (;;) {
+    else // child
+    {
+        for (;;)
+        {
             printf("waiting on port %d\n", myPort);
             int recvlen = recvfrom(socketfd, rcvbuf, BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
             printf("received %d bytes\n", recvlen);
-            if (recvlen > 0) {
+            if (recvlen > 0)
+            {
                 rcvbuf[recvlen] = 0;
                 printf("received message: \"%s\"\n", rcvbuf);
             }
