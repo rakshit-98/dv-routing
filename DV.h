@@ -11,7 +11,7 @@ public:
     DV() {}
     DV(const char *filename, const char *self);
     ~DV() {}
-   	
+
    	const char *getBuffer();
    	bool update(const char *advertisement);
    	int portNo(const char *destination);
@@ -19,14 +19,14 @@ public:
 
 private:
     struct dv_entry
-	{
-		std::string source;
-		std::string destination;
-		int portno;
-		int distance;
-	};
+  	{
+  		std::string source;
+  		std::string destination;
+  		int portno;
+  		int distance;
+  	};
 
-	std::string m_self;
+  	std::string m_self;
     std::vector<dv_entry> m_entries;
 };
 

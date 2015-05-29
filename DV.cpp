@@ -3,8 +3,8 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <stdio.h>	// for fprintf
-#include <string.h>	// for memcpy
+#include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -48,14 +48,23 @@ DV::DV(const char *filename, const char *self)
     // print this router's initial distance vector entries
     for (int i = 0; i < m_entries.size(); i++)
     {
-    	cerr << m_entries[i].source << " " << m_entries[i].destination << " " << m_entries[i].portno << " " << m_entries[i].distance << " " << endl;
+    	cerr << m_entries[i].source << " ";
+        cerr << m_entries[i].destination << " ";
+        cerr << m_entries[i].portno << " ";
+        cerr << m_entries[i].distance << " " << endl;
     }
 }
 
 // convert m_entries to a buffer (to send as an advertisement to other routers)
 const char *DV::getBuffer()
 {
-	return (char*) 0;
+    string buffer = "";
+    for (vector<dv_entry>::iterator it = m_entries.begin(); it != m_entries.end(); ++it)
+    {
+        buffer += it->source + "," + it->destination + "," + to_string(it->portno) + "," + to_string(it->distance) + "\n";
+    }
+    cerr << "this is the buffer:" << endl << buffer;
+	return buffer.c_str();
 }
 
 // update this router's distance vector based on received advertisement
@@ -77,9 +86,3 @@ std::vector<int> DV::neighbors()
 	std::vector<int> neighbors;
 	return neighbors;
 }
-
-
-
-
-
-

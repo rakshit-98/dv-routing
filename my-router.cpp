@@ -35,6 +35,7 @@ int main(int argc, char **argv)
     // initialize everything
 
     DV dv(argv[1], argv[2]);
+    dv.getBuffer();
     exit(0);
 
     // TODO: change to accomodate multiple nodes?
