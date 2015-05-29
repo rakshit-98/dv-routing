@@ -46,6 +46,7 @@ DV::DV(const char *filename, const char *self)
     }
 
     // print this router's initial distance vector entries
+    cerr << "initial distance vector entries:" << endl;
     for (int i = 0; i < m_entries.size(); i++)
     {
     	cerr << m_entries[i].source << " ";
@@ -63,7 +64,7 @@ const char *DV::getBuffer()
     {
         buffer += it->source + "," + it->destination + "," + to_string(it->portno) + "," + to_string(it->distance) + "\n";
     }
-    cerr << "this is the buffer:" << endl << buffer;
+    cerr << "buffer:" << endl << buffer;
 	return buffer.c_str();
 }
 
@@ -84,5 +85,15 @@ int DV::portNo(const char *destination)
 std::vector<int> DV::neighbors()
 {
 	std::vector<int> neighbors;
+    cerr << "neighbors:" << endl;
+    for (vector<dv_entry>::iterator it = m_entries.begin(); it != m_entries.end(); ++it)
+    {
+        if (it->source == m_self)
+        {
+            neighbors.push_back(it->portno);
+            cerr << it->portno << " ";
+        }
+    }
+    cerr << endl;
 	return neighbors;
 }
