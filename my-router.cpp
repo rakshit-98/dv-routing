@@ -17,9 +17,15 @@
 using namespace std;
 
 // TODO:
-// implement distance vector algorithm
 // support more than 2 nodes
 // check if neighbors are alive
+// add_header function
+    // data flag (1 Byte)
+    // source router (1 Byte)
+    // destination router (1 Byte)
+    // length of packet (4 Bytes)
+// strip_header function
+// debug DV.getBuffer
 
 int main(int argc, char **argv)
 {
@@ -31,16 +37,37 @@ int main(int argc, char **argv)
         return 0;
     }
 
-
-    // initialize everything
+    // testing
 
     DV dv(argv[1], argv[2]);
-    dv.getBuffer();
+    // dv.getBuffer();
     dv.neighbors();
+
+    dv_entry advertisement[6];
+
+    enum portno
+    {
+        A = 10000, B, C, D, E, F
+    };
+    
+    advertisement[0].nexthop = A;
+    advertisement[0].cost = 3;
+    advertisement[1].nexthop = -1;
+    advertisement[1].cost = -1;
+    advertisement[2].nexthop = C;
+    advertisement[2].cost = 3;
+    advertisement[3].nexthop = -1;
+    advertisement[3].cost = -1;
+    advertisement[4].nexthop = E;
+    advertisement[4].cost = 2;
+    advertisement[5].nexthop = F;
+    advertisement[5].cost = 1;
+
+    dv.update((char*)advertisement, 'B');
+
     exit(0);
 
     // TODO: change to accomodate multiple nodes?
-
 
     int myPort = atoi(argv[1]); // my port; first argument
     int remotePort = atoi(argv[2]); // remote port; second argument
