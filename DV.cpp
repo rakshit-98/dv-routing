@@ -65,8 +65,7 @@ DV::DV(const char *filename, const char *self)
 
 		m_portnos[n.name] = n.portno;
 	}
-	cerr << "number of neighbors: " << m_neighbors.size() << endl;
-	//printAll();
+	printAll();
 }
 
 // update this router's distance vector based on received advertisement from source
@@ -94,21 +93,19 @@ bool DV::update(const void *advertisementBuf, char source)
 		}
 	}
 
-	//printAll();
-
 	return updatedDV;
 }
 
 // return port number of next hop router on the least-cost path to the destination
 // return -1 if no port number found
-int DV::nextHopPortNo(const char dest)
+int DV::nextHopPortNo(const char dest) const
 {
 	return m_entries[indexOf(dest)].nexthop;
 }
 
 // print the DV
 // format: source, destination, port number of nexthop router, cost to destination
-void DV::printAll() {
+void DV::printAll() const {
 	cerr << getName() << endl;
 	cerr << "src dst nexthop cost" << endl;
 	for (int dest = 0; dest < NROUTERS; dest++)
@@ -131,7 +128,7 @@ void DV::printAll() {
 //-----------------
 
 // return minimum cost and set updated flag
-int DV::min(int originalCost, int selfToIntermediateCost, int intermediateToDestCost, bool &updated) {
+int DV::min(int originalCost, int selfToIntermediateCost, int intermediateToDestCost, bool &updated) const {
 	int new_cost = selfToIntermediateCost + intermediateToDestCost;
 
 	if (selfToIntermediateCost == -1 || intermediateToDestCost == -1)
@@ -155,13 +152,13 @@ int DV::min(int originalCost, int selfToIntermediateCost, int intermediateToDest
 }
 
 // return index of router
-int DV::indexOf(char router)
+int DV::indexOf(char router) const
 {
 	return router - 'A';
 }
 
 // return name of indexed router
-char DV::nameOf(int index)
+char DV::nameOf(int index) const
 {
 	return (char)index + 'A';
 }

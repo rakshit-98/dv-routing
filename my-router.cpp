@@ -22,15 +22,21 @@ using namespace std;
 
 struct header
 {
-	bool advertisement;
+	int type;
 	char source;
 	char dest;
 	int length;
 };
 
+enum type
+{
+	TYPE_DATA, TYPE_ADVERTISEMENT, TYPE_ALIVE
+};
+
 void *createPacket(bool advertisement, char source, char dest, int payloadLength, void *payload);
 header getHeader(void *packet);
 void *getPayload(void *packet, int length);
+void multicast(DV &dv, int socketfd);
 
 int main(int argc, char **argv)
 {
@@ -42,9 +48,9 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	DV *dv = new DV(argv[1], argv[2]);
+	DV dv(argv[1], argv[2]);
 
-	int myPort = dv->portNoOf(argv[2][0]); // my port
+	int myPort = dv.portNoOf(argv[2][0]); // my port
 
 	sockaddr_in myaddr; // our address
 	memset((char *)&myaddr, 0, sizeof(myaddr));
@@ -81,20 +87,12 @@ int main(int argc, char **argv)
 	}
 	else if (pid == 0) // send to each neighbor periodically
 	{
-		for (;;)
-		{
-			vector<node> neighbors = dv->neighbors();
-			for (int i = 0; i < neighbors.size(); i++)
-			{
-				cerr << "sent packet to: " << neighbors[i].name << endl;
-				dv->printAll();
-				void *sendPacket = createPacket(true, dv->getName(), neighbors[i].name, dv->getSize(), (void*)dv->getEntries());
-				sendto(socketfd, sendPacket, sizeof(header) + dv->getSize(), 0, (struct sockaddr *)&neighbors[i].addr, addrlen);
-				free(sendPacket);
-			}
-			cerr << endl;
-			sleep(1);
-		}
+		multicast(dv, socketfd);
+		// for (;;)
+		// {
+			
+		// 	sleep(1);
+		// }
 	}
 	else // listen for advertisements
 	{
@@ -103,54 +101,43 @@ int main(int argc, char **argv)
 		for (;;)
 		{
 			memset(rcvbuf, 0, BUFSIZE);
-			printf("waiting on port %d\n", myPort);
 			int recvlen = recvfrom(socketfd, rcvbuf, BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
 			
 			header h = getHeader(rcvbuf);
 			void *payload = getPayload(rcvbuf, h.length);
-			if (h.advertisement)
+			switch(h.type)
 			{
-				cerr << "received advertisement packet!" << endl;
-				cerr << "source: " << h.source << endl;
-				cerr << "dest: " << h.dest << endl;
-				cerr << "advertisement flag: " << h.advertisement << endl;
-				cerr << "length: " << h.length << endl;
-				dv_entry entries[NROUTERS];
-				memcpy((void*)entries, payload, h.length);
-				cerr << "dst nexthop cost" << endl;
-				for (int dest = 0; dest < NROUTERS; dest++)
-				{
-					cerr << dv->nameOf(dest) << "   ";
-					if (entries[dest].nexthop == -1)
-						cerr << "   ";
-					cerr << entries[dest].nexthop << "   ";
-					if (entries[dest].cost != -1)
-						cerr << " ";
-					cerr << entries[dest].cost;
-					cerr << endl;
-				}
-				cerr << endl;
-				dv->update(payload, h.source);
+				case TYPE_DATA:
+					cout << "Received data packet\n" << (char*)payload << endl;
+					break;
+				case TYPE_ADVERTISEMENT:
+					dv_entry entries[NROUTERS];
+					memcpy((void*)entries, payload, h.length);
+					if (dv.update(payload, h.source))
+					{
+						dv.printAll();
+						multicast(dv, socketfd);
+					}
+					break;
+				case TYPE_ALIVE:
+					// do something here
+					break;
 			}
-			else
-			{
-				cout << "Received data packet\n" << (char*)payload << endl;
-			}
+			sleep(5);
 		}
 		free(rcvbuf);
 	}
 }
 
 // create a packet with header and payload
-// advertisement flag is true if dv packet, false if data packet
-void *createPacket(bool advertisement, char source, char dest, int payloadLength, void *payload)
+void *createPacket(int type, char source, char dest, int payloadLength, void *payload)
 {
 	// create empty packet
 	void *packet = malloc(sizeof(header)+payloadLength);
 
 	// create header
 	header h;
-	h.advertisement = advertisement;
+	h.type = type;
 	h.source = source;
 	h.dest = dest;
 	h.length = payloadLength;
@@ -178,3 +165,14 @@ void *getPayload(void *packet, int length)
 	return payload;
 }
 
+// multicast advertisement to all neighbors
+void multicast(DV &dv, int socketfd)
+{
+	vector<node> neighbors = dv.neighbors();
+	for (int i = 0; i < neighbors.size(); i++)
+	{
+		void *sendPacket = createPacket(TYPE_ADVERTISEMENT, dv.getName(), neighbors[i].name, dv.getSize(), (void*)dv.getEntries());
+		sendto(socketfd, sendPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
+		free(sendPacket);
+	}
+}

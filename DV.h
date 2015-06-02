@@ -31,14 +31,14 @@ public:
 	~DV() {}
 	
 	dv_entry *getEntries() { return m_entries; }
-	int getSize() { return sizeof(m_entries); }
-	char getName() { return nameOf(m_self); }
+	int getSize() const { return sizeof(m_entries); }
+	char getName() const { return nameOf(m_self); }
 	bool update(const void *advertisement, char src);
-	int nextHopPortNo(const char dest);
-	std::vector<node> neighbors() { return m_neighbors; };
-	void printAll();
+	int nextHopPortNo(const char dest) const;
+	std::vector<node> neighbors() const { return m_neighbors; };
+	void printAll() const;
 	int portNoOf(char router);
-	char nameOf(int index);
+	char nameOf(int index) const;
 
 private:
 	// member variables
@@ -49,8 +49,8 @@ private:
 	std::map<char, int> m_portnos;
 
 	// helper functions
-	int min(int original_cost, int self_to_intermediate_cost, int intermediate_to_dest_cost, bool &updated);
-	int indexOf(char router);
+	int min(int original_cost, int self_to_intermediate_cost, int intermediate_to_dest_cost, bool &updated) const;
+	int indexOf(char router) const;
 };
 
 #endif
