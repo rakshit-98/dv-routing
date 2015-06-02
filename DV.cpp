@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctime>
 
 using namespace std;
 
@@ -106,21 +107,25 @@ int DV::nextHopPortNo(const char dest) const
 // print the DV
 // format: source, destination, port number of nexthop router, cost to destination
 void DV::printAll() const {
-	cerr << getName() << endl;
-	cerr << "src dst nexthop cost" << endl;
+	cout << "--------------" << endl;
+	cout << "DV of ROUTER " << nameOf(m_self) << endl;
+	cout << "--------------" << endl;
+	time_t rawtime;
+	time(&rawtime);
+	cout << ctime(&rawtime);
+	cout << "dst nexthop cost" << endl;
 	for (int dest = 0; dest < NROUTERS; dest++)
 	{
-		cerr << "  " << nameOf(m_self) << "   ";
-		cerr << nameOf(dest) << "   ";
+		cout << "  " << nameOf(dest) << "   ";
 		if (m_entries[dest].nexthop == -1)
-			cerr << "   ";
-		cerr << m_entries[dest].nexthop << "   ";
+			cout << "   ";
+		cout << m_entries[dest].nexthop << "   ";
 		if (m_entries[dest].cost != -1)
-			cerr << " ";
-		cerr << m_entries[dest].cost;
-		cerr << endl;
+			cout << " ";
+		cout << m_entries[dest].cost;
+		cout << endl;
 	}
-	cerr << endl;
+	cout << endl;
 };
 
 //-----------------
