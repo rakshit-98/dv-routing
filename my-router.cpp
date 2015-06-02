@@ -17,128 +17,164 @@
 using namespace std;
 
 // TODO:
-// support more than 2 nodes
 // check if neighbors are alive
-// add_header function
-    // data flag (1 Byte)
-    // source router (1 Byte)
-    // destination router (1 Byte)
-    // length of packet (4 Bytes)
-// strip_header function
-// debug DV.getBuffer
+// timestamp
+
+struct header
+{
+	bool advertisement;
+	char source;
+	char dest;
+	int length;
+};
+
+void *createPacket(bool advertisement, char source, char dest, int payloadLength, void *payload);
+header getHeader(void *packet);
+void *getPayload(void *packet, int length);
 
 int main(int argc, char **argv)
 {
-    // check for errors
+	// check for errors
 
-    if (argc < 3)
-    {
-        perror("Not enough arguments.\nUsage: ./my_router <initialization file> <router name>\n");
-        return 0;
-    }
+	if (argc < 3)
+	{
+		perror("Not enough arguments.\nUsage: ./my_router <initialization file> <router name>\n");
+		return 0;
+	}
 
-    // testing
+	DV *dv = new DV(argv[1], argv[2]);
 
-    DV dv(argv[1], argv[2]);
-    // dv.getBuffer();
-    dv.neighbors();
+	int myPort = dv->portNoOf(argv[2][0]); // my port
 
-    dv_entry advertisement[6];
+	sockaddr_in myaddr; // our address
+	memset((char *)&myaddr, 0, sizeof(myaddr));
+	myaddr.sin_family = AF_INET;
+	myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	myaddr.sin_port = htons(myPort);
 
-    enum portno
-    {
-        A = 10000, B, C, D, E, F
-    };
-    
-    advertisement[0].nexthop = A;
-    advertisement[0].cost = 3;
-    advertisement[1].nexthop = -1;
-    advertisement[1].cost = -1;
-    advertisement[2].nexthop = C;
-    advertisement[2].cost = 3;
-    advertisement[3].nexthop = -1;
-    advertisement[3].cost = -1;
-    advertisement[4].nexthop = E;
-    advertisement[4].cost = 2;
-    advertisement[5].nexthop = F;
-    advertisement[5].cost = 1;
+	socklen_t addrlen = sizeof(sockaddr_in); // length of addresses
 
-    dv.update((char*)advertisement, 'B');
+	// create a UDP socket
+	
+	int socketfd; // our socket
+	if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+	{
+		perror("cannot create socket\n");
+		return 0;
+	}
+	
+	// bind the socket to localhost and myPort
 
-    exit(0);
+	if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0)
+	{
+		perror("bind failed");
+		return 0;
+	}
+	
+	// distance vector routing
 
-    // TODO: change to accomodate multiple nodes?
-
-    int myPort = atoi(argv[1]); // my port; first argument
-    int remotePort = atoi(argv[2]); // remote port; second argument
-
-    struct sockaddr_in myaddr; // our address
-    memset((char *)&myaddr, 0, sizeof(myaddr));
-    myaddr.sin_family = AF_INET;
-    myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    myaddr.sin_port = htons(myPort);
-
-    struct sockaddr_in remaddr; // remote address
-    memset((char *)&remaddr, 0, sizeof(remaddr));
-    remaddr.sin_family = AF_INET;
-    remaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    remaddr.sin_port = htons(remotePort);
-
-    socklen_t addrlen = sizeof(remaddr); // length of addresses
-
-    char rcvbuf[BUFSIZE]; // receive buffer
-    memset((char *)rcvbuf, 0, sizeof(rcvbuf));
-
-    char sendbuf[BUFSIZE]; // send buffer
-    memset((char *)sendbuf, 0, sizeof(sendbuf));
-    strcpy(sendbuf, argv[1]); // initialize send buffer
-    
-    // create a UDP socket
-    
-    int socketfd; // our socket
-    if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-    {
-        perror("cannot create socket\n");
-        return 0;
-    }
-    
-    // bind the socket to localhost and myPort
-
-    if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0)
-    {
-        perror("bind failed");
-        return 0;
-    }
-    
-    // distance vector routing
-
-    int pid = fork();
-    if (pid < 0)
-    {
-        perror("fork failed");
-        return 0;
-    }
-    else if (pid == 0) // parent
-    {
-        for (;;)
-        {
-            // TODO: send to each neighbor
-            sendto(socketfd, sendbuf, strlen(sendbuf), 0, (struct sockaddr *)&remaddr, addrlen);
-            sleep(3);
-        }
-    }
-    else // child
-    {
-        for (;;)
-        {
-            printf("waiting on port %d\n", myPort);
-            int recvlen = recvfrom(socketfd, rcvbuf, BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-            printf("received %d bytes\n", recvlen);
-            if (recvlen > 0)
-            {
-                rcvbuf[recvlen] = 0;
-                printf("received message: \"%s\"\n", rcvbuf);
-            }
-        }
-    }
+	int pid = fork();
+	if (pid < 0)
+	{
+		perror("fork failed");
+		return 0;
+	}
+	else if (pid == 0) // send to each neighbor periodically
+	{
+		for (;;)
+		{
+			vector<node> neighbors = dv->neighbors();
+			for (int i = 0; i < neighbors.size(); i++)
+			{
+				cerr << "sent packet to: " << neighbors[i].name << endl;
+				dv->printAll();
+				void *sendPacket = createPacket(true, dv->getName(), neighbors[i].name, dv->getSize(), (void*)dv->getEntries());
+				sendto(socketfd, sendPacket, sizeof(header) + dv->getSize(), 0, (struct sockaddr *)&neighbors[i].addr, addrlen);
+				free(sendPacket);
+			}
+			cerr << endl;
+			sleep(1);
+		}
+	}
+	else // listen for advertisements
+	{
+		void *rcvbuf = malloc(BUFSIZE);
+		sockaddr_in remaddr;
+		for (;;)
+		{
+			memset(rcvbuf, 0, BUFSIZE);
+			printf("waiting on port %d\n", myPort);
+			int recvlen = recvfrom(socketfd, rcvbuf, BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+			
+			header h = getHeader(rcvbuf);
+			void *payload = getPayload(rcvbuf, h.length);
+			if (h.advertisement)
+			{
+				cerr << "received advertisement packet!" << endl;
+				cerr << "source: " << h.source << endl;
+				cerr << "dest: " << h.dest << endl;
+				cerr << "advertisement flag: " << h.advertisement << endl;
+				cerr << "length: " << h.length << endl;
+				dv_entry entries[NROUTERS];
+				memcpy((void*)entries, payload, h.length);
+				cerr << "dst nexthop cost" << endl;
+				for (int dest = 0; dest < NROUTERS; dest++)
+				{
+					cerr << dv->nameOf(dest) << "   ";
+					if (entries[dest].nexthop == -1)
+						cerr << "   ";
+					cerr << entries[dest].nexthop << "   ";
+					if (entries[dest].cost != -1)
+						cerr << " ";
+					cerr << entries[dest].cost;
+					cerr << endl;
+				}
+				cerr << endl;
+				dv->update(payload, h.source);
+			}
+			else
+			{
+				cout << "Received data packet\n" << (char*)payload << endl;
+			}
+		}
+		free(rcvbuf);
+	}
 }
+
+// create a packet with header and payload
+// advertisement flag is true if dv packet, false if data packet
+void *createPacket(bool advertisement, char source, char dest, int payloadLength, void *payload)
+{
+	// create empty packet
+	void *packet = malloc(sizeof(header)+payloadLength);
+
+	// create header
+	header h;
+	h.advertisement = advertisement;
+	h.source = source;
+	h.dest = dest;
+	h.length = payloadLength;
+
+	// fill in packet
+	memcpy(packet, (void*)&h, sizeof(header));
+	memcpy((void*)((char*)packet+sizeof(header)), payload, payloadLength);
+
+	return packet;
+}
+
+// extract the header from the packet
+header getHeader(void *packet)
+{
+	header h;
+	memcpy((void*)&h, packet, sizeof(header));
+	return h;
+}
+
+// extract the payload from the packet
+void *getPayload(void *packet, int length)
+{
+	void *payload = malloc(length);
+	memcpy(payload, (void*)((char*)packet+sizeof(header)), length);
+	return payload;
+}
+
