@@ -173,3 +173,14 @@ int DV::portNoOf(char router)
 {
 	return m_portnos[router];
 }
+
+void DV::initMyaddr(int portno)
+{
+    memset((char *)&m_myaddr, 0, sizeof(m_myaddr));
+    m_myaddr.sin_family = AF_INET;
+    m_myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    m_myaddr.sin_port = htons(portno);
+}
+
+
+

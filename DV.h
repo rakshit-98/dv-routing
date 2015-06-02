@@ -39,6 +39,8 @@ public:
 	void printAll() const;
 	int portNoOf(char router);
 	char nameOf(int index) const;
+  void initMyaddr(int portno);
+  sockaddr_in myaddr() const { return m_myaddr; }
 
 private:
 	// member variables
@@ -46,6 +48,7 @@ private:
 	int m_size;
 	dv_entry m_entries[NROUTERS]; // each router's distance vectors
 	std::vector<node> m_neighbors; // port numbers of self's neighbors
+  sockaddr_in m_myaddr;
 	std::map<char, int> m_portnos;
 
 	// helper functions

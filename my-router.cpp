@@ -30,13 +30,14 @@ struct header
 
 enum type
 {
-	TYPE_DATA, TYPE_ADVERTISEMENT, TYPE_ALIVE
+	TYPE_DATA, TYPE_ADVERTISEMENT, TYPE_WAKEUP
 };
 
 void *createPacket(bool advertisement, char source, char dest, int payloadLength, void *payload);
 header getHeader(void *packet);
 void *getPayload(void *packet, int length);
 void multicast(DV &dv, int socketfd);
+void selfcastWakeup(DV &dv, int socketfd);
 
 int main(int argc, char **argv)
 {
@@ -52,11 +53,8 @@ int main(int argc, char **argv)
 
 	int myPort = dv.portNoOf(argv[2][0]); // my port
 
-	sockaddr_in myaddr; // our address
-	memset((char *)&myaddr, 0, sizeof(myaddr));
-	myaddr.sin_family = AF_INET;
-	myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	myaddr.sin_port = htons(myPort);
+    dv.initMyaddr(myPort);
+	sockaddr_in myaddr = dv.myaddr();
 
 	socklen_t addrlen = sizeof(sockaddr_in); // length of addresses
 
@@ -87,12 +85,12 @@ int main(int argc, char **argv)
 	}
 	else if (pid == 0) // send to each neighbor periodically
 	{
-		multicast(dv, socketfd);
-		// for (;;)
-		// {
-			
-		// 	sleep(1);
-		// }
+		for (;;)
+		{
+			// periodically wake up parent process
+            selfcastWakeup(dv, socketfd);
+			sleep(5);
+		}
 	}
 	else // listen for advertisements
 	{
@@ -119,11 +117,13 @@ int main(int argc, char **argv)
 						multicast(dv, socketfd);
 					}
 					break;
-				case TYPE_ALIVE:
-					// do something here
-					break;
+                case TYPE_WAKEUP:
+                    // perform periodic tasks
+                    cerr << "WOKE UP!\n";
+                    multicast(dv, socketfd);
+                    break;
 			}
-			sleep(5);
+			//sleep(5);
 		}
 		free(rcvbuf);
 	}
@@ -175,4 +175,13 @@ void multicast(DV &dv, int socketfd)
 		sendto(socketfd, sendPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
 		free(sendPacket);
 	}
+}
+
+// periodically wake yourself up to multicast advertisement
+void selfcastWakeup(DV &dv, int socketfd)
+{
+    void *sendPacket = createPacket(TYPE_WAKEUP, (char)0, (char)0, (char)0, (void*)0);
+    sockaddr_in destAddr = dv.myaddr();
+    sendto(socketfd, sendPacket, sizeof(header), 0, (struct sockaddr *)&destAddr, sizeof(sockaddr_in));
+    free(sendPacket);
 }
