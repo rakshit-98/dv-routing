@@ -62,6 +62,7 @@ DV::DV(const char *filename, const char *self)
 		{
 			m_neighbors.push_back(n); // store neighbor
 			m_entries[dest] = entry;
+            startTimer(n.name);
 		}
 
 		m_portnos[n.name] = n.portno;

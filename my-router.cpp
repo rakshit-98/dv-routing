@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 					if (dv.update(payload, h.source))
 					{
 						dv.printAll();
-						multicast(dv, socketfd);
+						//multicast(dv, socketfd);
 					}
 					break;
                 case TYPE_WAKEUP:

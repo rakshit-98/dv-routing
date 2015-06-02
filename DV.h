@@ -6,6 +6,7 @@
 #include <string>
 #include <arpa/inet.h>
 #include <map>
+#include <time.h>
 
 
 #define NROUTERS 6
@@ -20,6 +21,7 @@ struct node
 {
 	char name;
 	int portno;
+  clock_t timer;
 	sockaddr_in addr;
 };
 
@@ -41,6 +43,8 @@ public:
 	char nameOf(int index) const;
   void initMyaddr(int portno);
   sockaddr_in myaddr() const { return m_myaddr; }
+  void startTimer(char neighbor) { m_neighbors[indexOf(neighbor)].timer = clock(); }
+  clock_t getTime(char neighbor) const { return (clock() - m_neighbors[indexOf(neighbor)].timer); }
 
 private:
 	// member variables
