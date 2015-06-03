@@ -133,7 +133,7 @@ int main(int argc, char **argv)
 					for (int i = 0; i < neighbors.size(); i++)
 					{
 						node curNeighbor = neighbors[i];
-						if ((dv.getEntries()[dv.indexOf(curNeighbor.name)].cost != -1) && dv.timerExpired(neighbors[i]))
+						if ((dv.getEntries()[dv.indexOf(curNeighbor.name)].cost() != -1) && dv.timerExpired(neighbors[i]))
 						{
 							selfcast(dv, socketfd, TYPE_RESETLOWER, neighbors[i].name);
 							selfcast(dv, socketfd, TYPE_RESETHIGHER, neighbors[i].name);

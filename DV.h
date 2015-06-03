@@ -14,8 +14,19 @@
 
 struct dv_entry
 {
-	int nexthop; // port number of next hop router
-	int cost; // link cost to destination
+public:	
+	int nexthop() const { return (invalid() ? -1 : m_nexthop); }
+	int cost() const { return (invalid() ? -1 : m_cost); }
+	bool invalid() const { return m_invalid; }
+
+	void setNexthop(int n) { m_nexthop = n; }
+	void setCost(int c) { m_cost = c; }
+	void setValid() { m_invalid = false; }
+	void setInvalid() { m_invalid = true; }
+private:
+	bool m_invalid;
+	int m_nexthop; // port number of next hop router
+	int m_cost; // link cost to destination
 };
 
 struct node
