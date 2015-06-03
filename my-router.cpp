@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <stdio.h>	// for fprintf
 #include <string.h>	// for memcpy
+#include <string>
 #include <stdlib.h>
 #include <stdio.h>
 #include <netdb.h>
@@ -33,7 +34,7 @@ enum type
 	TYPE_DATA, TYPE_ADVERTISEMENT, TYPE_WAKEUP, TYPE_RESETLOWER, TYPE_RESETHIGHER
 };
 
-void *createPacket(bool advertisement, char source, char dest, int payloadLength, void *payload);
+void *createPacket(int type, char source, char dest, int payloadLength, void *payload);
 header getHeader(void *packet);
 void *getPayload(void *packet, int length);
 void multicast(DV &dv, int socketfd);
@@ -79,7 +80,31 @@ int main(int argc, char **argv)
 		perror("bind failed");
 		return 0;
 	}
-	
+
+	// send a data packet to router A
+	if (dv.getName() == 'H')
+	{
+		char data[14] = "Hello, world!";
+		for (int i = 0; i < neighbors.size(); i++)
+		{
+			if (neighbors[i].name == 'A')
+			{
+				void *dataPacket = createPacket(TYPE_DATA, dv.getName(), 'D', 14, (void*)data);
+
+				// testing 
+				header h = getHeader(dataPacket);
+				cerr << "header info: " << endl;
+				cerr << "len: " << h.length << endl;
+				cerr << "src: " << h.source << endl;
+				cerr << "dst: " << h.dest << endl;
+
+				sendto(socketfd, dataPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
+				free(dataPacket);
+			}
+		}
+		exit(0);
+	}
+
 	// distance vector routing
 
 	int pid = fork();
@@ -111,7 +136,30 @@ int main(int argc, char **argv)
 			switch(h.type)
 			{
 				case TYPE_DATA:
-					cout << "Received data packet\n" << (char*)payload << endl;
+					if (h.dest != dv.getName()) // only forward if this router is not the destination
+					{
+						cerr << "received data packet for " << h.dest << " from " << h.source << endl;
+						cout << "Forwarding data packet to " << dv.routeTo(h.dest).nexthopName() << " on port " << dv.routeTo(h.dest).nexthopPort() << endl;
+						
+						void *forwardPacket = createPacket(TYPE_DATA, h.source, h.dest, h.length, (void*)payload);
+						for (int i = 0; i < neighbors.size(); i++)
+						{
+							if (neighbors[i].name == dv.routeTo(h.dest).nexthopName())
+								sendto(socketfd, forwardPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
+						}
+						free(forwardPacket);
+					}
+					else
+					{
+						char data[96];
+						cerr << "header info:" << endl;
+						cerr << "len: " << h.length << endl;
+						cerr << "src: " << h.source << endl;
+						cerr << "dst: " << h.dest << endl;
+						memcpy((void*)data, payload, 14);
+						cout << "Received data packet from " << h.source << ": " << data << endl;
+						
+					}
 					break;
 				case TYPE_ADVERTISEMENT:
 					dv_entry entries[NROUTERS];
@@ -127,9 +175,7 @@ int main(int argc, char **argv)
 						//multicast(dv, socketfd);
 					}
 					break;
-				case TYPE_WAKEUP:
-					// perform periodic tasks
-					
+				case TYPE_WAKEUP: // perform periodic tasks
 					for (int i = 0; i < neighbors.size(); i++)
 					{
 						node curNeighbor = neighbors[i];
@@ -154,7 +200,6 @@ int main(int argc, char **argv)
 					multicastResetHigher(dv, socketfd, h.source);
 					break;
 			}
-			//sleep(5);
 		}
 		free(rcvbuf);
 	}

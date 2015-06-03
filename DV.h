@@ -15,17 +15,20 @@
 struct dv_entry
 {
 public:	
-	int nexthop() const { return (invalid() ? -1 : m_nexthop); }
+	int nexthopPort() const { return (invalid() ? -1 : m_nexthopPort); }
+	char nexthopName() const { return (invalid() ? '0' : m_nexthopName); }
 	int cost() const { return (invalid() ? -1 : m_cost); }
 	bool invalid() const { return m_invalid; }
 
-	void setNexthop(int n) { m_nexthop = n; }
+	void setNexthopPort(int n) { m_nexthopPort = n; }
+	void setNexthopName(char n) { m_nexthopName = n; }
 	void setCost(int c) { m_cost = c; }
 	void setValid() { m_invalid = false; }
 	void setInvalid() { m_invalid = true; }
 private:
 	bool m_invalid;
-	int m_nexthop; // port number of next hop router
+	int m_nexthopPort; // port number of next hop router
+	char m_nexthopName;
 	int m_cost; // link cost to destination
 };
 
@@ -49,7 +52,7 @@ public:
 	int getSize() const { return sizeof(m_entries); }
 	char getName() const { return nameOf(m_self); }
 	bool update(const void *advertisement, char src);
-	int nextHopPortNo(const char dest) const;
+	dv_entry routeTo(const char dest) const { return m_entries[indexOf(dest)]; };
 	std::vector<node> neighbors() const { return m_neighbors; };
 	void printAll() const;
 	int portNoOf(char router);

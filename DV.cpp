@@ -25,7 +25,8 @@ DV::DV(const char *filename, const char *self)
 	// initialize m_entries
 	for (int dest = 0; dest < NROUTERS; dest++)
 	{
-		m_entries[dest].setNexthop(-1);
+		m_entries[dest].setNexthopName('0');
+		m_entries[dest].setNexthopPort(-1);
 		m_entries[dest].setCost(-1);
 		m_entries[dest].setValid();
 	}
@@ -46,12 +47,15 @@ DV::DV(const char *filename, const char *self)
 		int dest = indexOf(field[0]);
 		node n;
 		n.name = field[0];
+		entry.setNexthopName(field[0]);
+		cerr << "nexthopname: " << field[0] << endl;
 
 		// destination port number
 		getline(linestream, field, ',');
 		int port = atoi(field.c_str());
-		entry.setNexthop(port);
+		entry.setNexthopPort(port);
 		n.portno = port;
+		cerr << "nexthopport: " << port << endl;
 
 		memset((char *)&n.addr, 0, sizeof(n.addr));
 		n.addr.sin_family = AF_INET;
@@ -61,8 +65,20 @@ DV::DV(const char *filename, const char *self)
 		// link cost
 		getline(linestream, field, ',');
 		entry.setCost(atoi(field.c_str()));
+		cerr << "nexthopcost: " << entry.cost() << endl;
 
-		if (name == selfName)
+		if (selfName == 'H')
+		{
+			int i;
+			for (i = 0; i < m_neighbors.size(); i++)
+			{
+				if (m_neighbors[i].name == n.name)
+					break;
+			}
+			if (i == m_neighbors.size())
+				m_neighbors.push_back(n);
+		}
+		else if (name == selfName)
 		{
 			startTimer(n);
 			m_neighbors.push_back(n); // store neighbor
@@ -72,9 +88,11 @@ DV::DV(const char *filename, const char *self)
 		m_portnos[n.name] = n.portno;
 	}
 
+	// special port number for sending data packet
+	m_portnos['H'] = 11111;
+
 	memcpy((void*)m_entries_backup, (void*)m_entries, sizeof(m_entries));
 }
-
 
 void DV::reset(char dead)
 {
@@ -87,16 +105,6 @@ void DV::reset(char dead)
 	}
 	memcpy((void*)m_entries, (void*)m_entries_backup, sizeof(m_entries));
 }
-
-
-
-
-
-
-
-
-
-
 
 // update this router's distance vector based on received advertisement from source
 // return false if this router's distance vector was not changed
@@ -127,20 +135,16 @@ bool DV::update(const void *advertisementBuf, char source)
 		if (updatedEntry)
 		{
 			updatedDV = true;
-			m_entries[dest].setNexthop(portNoOf(source));
+			m_entries[dest].setNexthopPort(portNoOf(source));
+			m_entries[dest].setNexthopName(source);
+			cerr << "update: " << m_entries[dest].nexthopPort() << " " << m_entries[dest].nexthopName() << endl;
 		}
 	}
 
 	return updatedDV;
 }
 
-// return port number of next hop router on the least-cost path to the destination
-// return -1 if no port number found
-int DV::nextHopPortNo(const char dest) const
-{
-	return m_entries[indexOf(dest)].nexthop();
-}
-
+// TODO FIX THE PRINTING
 // print the DV
 // format: source, destination, port number of nexthop router, cost to destination
 void DV::printAll() const {
@@ -154,9 +158,9 @@ void DV::printAll() const {
 	for (int dest = 0; dest < NROUTERS; dest++)
 	{
 		cout << "  " << nameOf(dest) << "   ";
-		if (m_entries[dest].nexthop() == -1)
+		if (m_entries[dest].nexthopPort() == -1)
 			cout << "   ";
-		cout << m_entries[dest].nexthop() << "   ";
+		cout << m_entries[dest].nexthopPort() << "   ";
 		if (m_entries[dest].cost() != -1)
 			cout << " ";
 		cout << m_entries[dest].cost();
