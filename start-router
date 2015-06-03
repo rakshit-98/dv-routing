@@ -1,1 +1,6 @@
-#!/bin/bash
+xterm -title "A" -hold -e "./my-router topology.txt A" &
+xterm -title "B" -hold -e "./my-router topology.txt B" &
+xterm -title "C" -hold -e "./my-router topology.txt C" &
+xterm -title "D" -hold -e "./my-router topology.txt D" &
+xterm -title "E" -hold -e "./my-router topology.txt E" &
+xterm -title "F" -hold -e "./my-router topology.txt F"

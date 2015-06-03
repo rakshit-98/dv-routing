@@ -8,13 +8,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctime>
+#include <time.h>
+#include <unistd.h>
 
 using namespace std;
 
 DV::DV(const char *filename, const char *self)
 {
-	string sfilename(filename);
-	fstream topology(sfilename);
+	fstream topology(filename);
 
 	string line; // current line of file
 	string field; // current token (to be put into entry's field)
@@ -60,15 +61,42 @@ DV::DV(const char *filename, const char *self)
 
 		if (name == selfName)
 		{
+			startTimer(n);
 			m_neighbors.push_back(n); // store neighbor
 			m_entries[dest] = entry;
-            startTimer(n.name);
 		}
 
 		m_portnos[n.name] = n.portno;
 	}
-	printAll();
+
+	memcpy((void*)m_entries_backup, (void*)m_entries, sizeof(m_entries));
 }
+
+
+void DV::reset(char dead)
+{
+	m_entries_backup[indexOf(dead)].nexthop = -1;
+	m_entries_backup[indexOf(dead)].cost = -1;
+	memcpy((void*)m_entries, (void*)m_entries_backup, sizeof(m_entries));
+	for (int i = 0; i < m_neighbors.size(); i++)
+	{
+		if (m_neighbors[i].name == dead)
+		{
+			m_neighbors.erase(m_neighbors.begin() + i);
+		}
+	}
+
+}
+
+
+
+
+
+
+
+
+
+
 
 // update this router's distance vector based on received advertisement from source
 // return false if this router's distance vector was not changed
@@ -177,11 +205,24 @@ int DV::portNoOf(char router)
 
 void DV::initMyaddr(int portno)
 {
-    memset((char *)&m_myaddr, 0, sizeof(m_myaddr));
-    m_myaddr.sin_family = AF_INET;
-    m_myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    m_myaddr.sin_port = htons(portno);
+	memset((char *)&m_myaddr, 0, sizeof(m_myaddr));
+	m_myaddr.sin_family = AF_INET;
+	m_myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	m_myaddr.sin_port = htons(portno);
 }
 
+void DV::startTimer(node &n)
+{
+	clock_gettime(CLOCK_MONOTONIC, &n.startTime);
+}
 
+bool DV::timerExpired(node &n) const
+{
+	timespec tend={0,0};
+	clock_gettime(CLOCK_MONOTONIC, &tend);
 
+	if (((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - ((double)n.startTime.tv_sec + 1.0e-9*n.startTime.tv_nsec) > 5)
+		return true;
+	else
+		return false;
+}
