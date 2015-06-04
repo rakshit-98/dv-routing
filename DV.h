@@ -8,6 +8,7 @@
 #include <map>
 #include <time.h>
 #include <ctime>
+#include <string.h>
 
 
 #define NROUTERS 6
@@ -51,10 +52,9 @@ public:
 	dv_entry *getEntries() { return m_entries; }
 	int getSize() const { return sizeof(m_entries); }
 	char getName() const { return nameOf(m_self); }
-	bool update(const void *advertisement, char src);
+	void update(const void *advertisement, char src);
 	dv_entry routeTo(const char dest) const { return m_entries[indexOf(dest)]; };
 	std::vector<node> neighbors() const { return m_neighbors; };
-	void printAll() const;
 	int portNoOf(char router);
 	char nameOf(int index) const;
 	int indexOf(char router) const;
@@ -75,7 +75,8 @@ private:
 	std::map<char, int> m_portnos;
 
 	// helper functions
-	int min(int original_cost, int self_to_intermediate_cost, int intermediate_to_dest_cost, bool &updated) const;
+	int min(int originalCost, int selfToIntermediateCost, int intermediateToDestCost, char originalName, char newName, bool &updated) const;
+	void print(dv_entry dv[], char name, std::string msg, bool timestamp) const;
 };
 
 #endif

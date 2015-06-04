@@ -89,6 +89,9 @@ DV::DV(const char *filename, const char *self)
 	m_portnos['H'] = 11111;
 
 	memcpy((void*)m_entries_backup, (void*)m_entries, sizeof(m_entries));
+
+	if (nameOf(m_self) != 'H')
+		print(m_entries, nameOf(m_self), "Initial routing table", true);
 }
 
 void DV::reset(char dead)
@@ -102,12 +105,16 @@ void DV::reset(char dead)
 		}
 	}
 	memcpy((void*)m_entries, (void*)m_entries_backup, sizeof(m_entries));
+	print(m_entries, nameOf(m_self), "Reset routing table", true);
 }
 
 // update this router's distance vector based on received advertisement from source
 // return false if this router's distance vector was not changed
-bool DV::update(const void *advertisementBuf, char source)
+void DV::update(const void *advertisementBuf, char source)
 {
+	dv_entry originalEntries[NROUTERS];
+	memcpy((void*)originalEntries, (void*)m_entries, sizeof(m_entries));
+
 	bool updatedDV = false;
 
 	int intermediate = indexOf(source);
@@ -129,7 +136,7 @@ bool DV::update(const void *advertisementBuf, char source)
 		if (dest == m_self)
 			continue;
 		bool updatedEntry = false;
-		m_entries[dest].setCost(min(m_entries[dest].cost(), m_entries[intermediate].cost(), advertisement[dest].cost(), updatedEntry));
+		m_entries[dest].setCost(min(m_entries[dest].cost(), m_entries[intermediate].cost(), advertisement[dest].cost(), m_entries[dest].nexthopName(), source, updatedEntry));
 		if (updatedEntry)
 		{
 			updatedDV = true;
@@ -139,58 +146,11 @@ bool DV::update(const void *advertisementBuf, char source)
 	}
 	m_entries[intermediate].setCost(advertisement[m_self].cost());
 
-	return updatedDV;
-}
-
-// print the DV
-// format: source, destination, port number of nexthop router, cost to destination
-void DV::printAll() const {
-	cout << "--------------" << endl;
-	cout << "DV of ROUTER " << nameOf(m_self) << endl;
-	cout << "--------------" << endl;
-	time_t rawtime;
-	time(&rawtime);
-	cout << ctime(&rawtime);
-	cout << "dst nexthop cost" << endl;
-	for (int dest = 0; dest < NROUTERS; dest++)
+	if (updatedDV)
 	{
-		cout << "  " << nameOf(dest) << "   ";
-		if (m_entries[dest].nexthopPort() == -1)
-			cout << "   ";
-		cout << m_entries[dest].nexthopPort() << "   ";
-		if (m_entries[dest].cost() != -1)
-			cout << " ";
-		cout << m_entries[dest].cost();
-		cout << endl;
-	}
-	cout << endl;
-};
-
-//-----------------
-// HELPER FUNCTIONS
-//-----------------
-
-// return minimum cost and set updated flag
-int DV::min(int originalCost, int selfToIntermediateCost, int intermediateToDestCost, bool &updated) const {
-	int new_cost = selfToIntermediateCost + intermediateToDestCost;
-
-	if (selfToIntermediateCost == -1 || intermediateToDestCost == -1)
-	{
-		return originalCost;
-	}
-	else if (originalCost == -1)
-	{
-		updated = true;
-		return new_cost;
-	}
-	else if (new_cost < originalCost)
-	{
-		updated = true;
-		return new_cost;
-	}
-	else
-	{
-		return originalCost;
+		print(originalEntries, nameOf(m_self), "Change detected!\nRouting table before change", true);
+		print(advertisement, source, "DV that caused the change", false);
+		print(m_entries, nameOf(m_self), "Routing table after change", false);
 	}
 }
 
@@ -234,4 +194,65 @@ bool DV::timerExpired(node &n) const
 		return true;
 	else
 		return false;
+}
+
+//-----------------
+// HELPER FUNCTIONS
+//-----------------
+
+// return minimum cost and set updated flag
+int DV::min(int originalCost, int selfToIntermediateCost, int intermediateToDestCost, char originalName, char newName, bool &updated) const {
+	int newCost = selfToIntermediateCost + intermediateToDestCost;
+
+	if (selfToIntermediateCost == -1 || intermediateToDestCost == -1)
+	{
+		return originalCost;
+	}
+	else if (originalCost == -1)
+	{
+		updated = true;
+		return newCost;
+	}
+	else if (newCost < originalCost)
+	{
+		updated = true;
+		return newCost;
+	}
+	else if (originalCost == newCost)
+	{
+		if (originalName <= newName)
+			updated = false;
+		else
+			updated = true;
+		return newCost;
+	}
+	else
+	{
+		return originalCost;
+	}
+}
+
+// print a DV
+// format: source, destination, port number of nexthop router, cost to destination
+void DV::print(dv_entry dv[], char name, string msg, bool timestamp) const {
+	if (timestamp)
+	{
+		time_t rawtime;
+		time(&rawtime);
+		cout << ctime(&rawtime);
+	}
+	cout << msg << ": " << name << endl;
+	cout << "dst nexthop cost" << endl;
+	for (int dest = 0; dest < NROUTERS; dest++)
+	{
+		cout << "  " << nameOf(dest) << "   ";
+		if (dv[dest].nexthopPort() == -1)
+			cout << "   ";
+		cout << dv[dest].nexthopPort() << "   ";
+		if (dv[dest].cost() != -1)
+			cout << " ";
+		cout << dv[dest].cost();
+		cout << endl;
+	}
+	cout << endl;
 }

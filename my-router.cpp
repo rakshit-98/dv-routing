@@ -41,7 +41,6 @@ void selfcast(DV &dv, int socketfd, int type, char source = 0, char dest = 0, in
 int main(int argc, char **argv)
 {
 	// check for errors
-
 	if (argc < 3)
 	{
 		perror("Not enough arguments.\nUsage: ./my_router <initialization file> <router name>\n");
@@ -49,7 +48,6 @@ int main(int argc, char **argv)
 	}
 
 	DV dv(argv[1], argv[2]);
-	dv.printAll();
 
 	vector<node> neighbors = dv.neighbors();
 
@@ -61,7 +59,6 @@ int main(int argc, char **argv)
 	socklen_t addrlen = sizeof(sockaddr_in); // length of addresses
 
 	// create a UDP socket
-	
 	int socketfd; // our socket
 	if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 	{
@@ -70,7 +67,6 @@ int main(int argc, char **argv)
 	}
 	
 	// bind the socket to localhost and myPort
-
 	if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0)
 	{
 		perror("bind failed");
@@ -80,13 +76,27 @@ int main(int argc, char **argv)
 	// send a data packet to router A
 	if (dv.getName() == 'H')
 	{
-		char data[14] = "Hello, world!";
+		
+		char data[100];
+		memset(data, 0, 100);
+		cin.getline(data, 100);
 		for (int i = 0; i < neighbors.size(); i++)
 		{
 			if (neighbors[i].name == 'A')
 			{
-				void *dataPacket = createPacket(TYPE_DATA, dv.getName(), 'D', 14, (void*)data);
+				void *dataPacket = createPacket(TYPE_DATA, dv.getName(), 'D', strlen(data), (void*)data);
 				sendto(socketfd, dataPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
+
+				// print info
+				header h = getHeader(dataPacket);
+				cout << "Sent data packet" << endl;
+				cout << "Type: data" << endl;
+				cout << "Source: " << h.source << endl;
+				cout << "Destination: " << h.dest << endl;
+				cout << "Length of packet: " << sizeof(header) + h.length << endl;
+				cout << "Length of payload: " << h.length << endl;
+				cout << "Payload: " << data << endl;
+
 				free(dataPacket);
 			}
 		}
@@ -94,7 +104,6 @@ int main(int argc, char **argv)
 	}
 
 	// distance vector routing
-
 	int pid = fork();
 	if (pid < 0)
 	{
@@ -153,9 +162,10 @@ int main(int argc, char **argv)
 					}
 					else
 					{
-						char data[14];
-						memcpy((void*)data, payload, 14);
-						cout << "Data payload: " << data << endl;
+						char data[100];
+						memset(data, 0, 100);
+						memcpy((void*)data, payload, h.length);
+						cout << "Data payload: " << data << endl << endl;
 					}
 					break;
 				case TYPE_ADVERTISEMENT:
@@ -166,10 +176,7 @@ int main(int argc, char **argv)
 						if (neighbors[i].name == h.source)
 							dv.startTimer(neighbors[i]);
 					}
-					if (dv.update(payload, h.source))
-					{
-						dv.printAll();
-					}
+					dv.update(payload, h.source);
 					break;
 				case TYPE_WAKEUP: // perform periodic tasks
 					for (int i = 0; i < neighbors.size(); i++)
@@ -185,7 +192,6 @@ int main(int argc, char **argv)
 				case TYPE_RESET:
 					int hopcount = (int)h.length - 1;
 					dv.reset(h.dest);
-					dv.printAll();
 					if (hopcount > 0)
 					{
 						void *forwardPacket = createPacket(TYPE_RESET, dv.getName(), h.dest, hopcount, (void*)0);
