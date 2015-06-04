@@ -48,14 +48,12 @@ DV::DV(const char *filename, const char *self)
 		node n;
 		n.name = field[0];
 		entry.setNexthopName(field[0]);
-		cerr << "nexthopname: " << field[0] << endl;
 
 		// destination port number
 		getline(linestream, field, ',');
 		int port = atoi(field.c_str());
 		entry.setNexthopPort(port);
 		n.portno = port;
-		cerr << "nexthopport: " << port << endl;
 
 		memset((char *)&n.addr, 0, sizeof(n.addr));
 		n.addr.sin_family = AF_INET;
@@ -65,7 +63,6 @@ DV::DV(const char *filename, const char *self)
 		// link cost
 		getline(linestream, field, ',');
 		entry.setCost(atoi(field.c_str()));
-		cerr << "nexthopcost: " << entry.cost() << endl;
 
 		if (selfName == 'H')
 		{
@@ -100,7 +97,8 @@ void DV::reset(char dead)
 	{
 		if (m_neighbors[i].name == dead)
 		{
-			m_entries_backup[indexOf(dead)].setInvalid();
+			if (m_entries_backup[indexOf(dead)].cost() != -1)
+				m_entries_backup[indexOf(dead)].setInvalid();
 		}
 	}
 	memcpy((void*)m_entries, (void*)m_entries_backup, sizeof(m_entries));
@@ -137,14 +135,13 @@ bool DV::update(const void *advertisementBuf, char source)
 			updatedDV = true;
 			m_entries[dest].setNexthopPort(portNoOf(source));
 			m_entries[dest].setNexthopName(source);
-			cerr << "update: " << m_entries[dest].nexthopPort() << " " << m_entries[dest].nexthopName() << endl;
 		}
 	}
+	m_entries[intermediate].setCost(advertisement[m_self].cost());
 
 	return updatedDV;
 }
 
-// TODO FIX THE PRINTING
 // print the DV
 // format: source, destination, port number of nexthop router, cost to destination
 void DV::printAll() const {

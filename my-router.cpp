@@ -10,16 +10,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <ctime>
+#include <time.h>
 
 #include "DV.h"
 
 #define BUFSIZE 2048
 
 using namespace std;
-
-// TODO:
-// check if neighbors are alive
-// timestamp
 
 struct header
 {
@@ -90,14 +88,6 @@ int main(int argc, char **argv)
 			if (neighbors[i].name == 'A')
 			{
 				void *dataPacket = createPacket(TYPE_DATA, dv.getName(), 'D', 14, (void*)data);
-
-				// testing 
-				header h = getHeader(dataPacket);
-				cerr << "header info: " << endl;
-				cerr << "len: " << h.length << endl;
-				cerr << "src: " << h.source << endl;
-				cerr << "dst: " << h.dest << endl;
-
 				sendto(socketfd, dataPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
 				free(dataPacket);
 			}
@@ -136,11 +126,17 @@ int main(int argc, char **argv)
 			switch(h.type)
 			{
 				case TYPE_DATA:
+					cout << "Received data packet" << endl;
+					time_t rawtime;
+					time(&rawtime);
+					cout << "Timestamp: " << ctime(&rawtime);
+					cout << "ID of source node: " << h.source << endl;
+					cout << "ID of destination node: " << h.dest << endl;
+					cout << "UDP port in which the packet arrived: " << myPort << endl;
 					if (h.dest != dv.getName()) // only forward if this router is not the destination
 					{
-						cerr << "received data packet for " << h.dest << " from " << h.source << endl;
-						cout << "Forwarding data packet to " << dv.routeTo(h.dest).nexthopName() << " on port " << dv.routeTo(h.dest).nexthopPort() << endl;
-						
+						cout << "UDP port along which the packet was forwarded: " << dv.routeTo(h.dest).nexthopPort() << endl;
+						cout << "ID of node that packet was forwarded to: " << dv.routeTo(h.dest).nexthopName() << endl;
 						void *forwardPacket = createPacket(TYPE_DATA, h.source, h.dest, h.length, (void*)payload);
 						for (int i = 0; i < neighbors.size(); i++)
 						{
@@ -151,14 +147,9 @@ int main(int argc, char **argv)
 					}
 					else
 					{
-						char data[96];
-						cerr << "header info:" << endl;
-						cerr << "len: " << h.length << endl;
-						cerr << "src: " << h.source << endl;
-						cerr << "dst: " << h.dest << endl;
+						char data[14];
 						memcpy((void*)data, payload, 14);
-						cout << "Received data packet from " << h.source << ": " << data << endl;
-						
+						cout << "Data payload: " << data << endl;
 					}
 					break;
 				case TYPE_ADVERTISEMENT:

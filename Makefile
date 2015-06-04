@@ -6,4 +6,4 @@ my-router:
 	$(CC) DV.cpp my-router.cpp -o my-router -lrt
 
 clean:
-	rm my-router
+	rm my-router routing-output*.txt
