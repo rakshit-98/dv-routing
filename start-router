@@ -1,12 +1,6 @@
 #!/bin/bash
 
-echo '
-
-
-
-
-
-xterm -title "A" -hold -e "./my-router topology.txt A | tee routing-outputA.txt" & sleep 1
+echo 'xterm -title "A" -hold -e "./my-router topology.txt A | tee routing-outputA.txt" & sleep 1
 xterm -title "B" -hold -e "./my-router topology.txt B | tee routing-outputB.txt" & sleep 1
 xterm -title "C" -hold -e "./my-router topology.txt C | tee routing-outputC.txt" & sleep 1
 xterm -title "D" -hold -e "./my-router topology.txt D | tee routing-outputD.txt" & sleep 1

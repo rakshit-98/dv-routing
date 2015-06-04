@@ -29,16 +29,14 @@ struct header
 
 enum type
 {
-	TYPE_DATA, TYPE_ADVERTISEMENT, TYPE_WAKEUP, TYPE_RESETLOWER, TYPE_RESETHIGHER
+	TYPE_DATA, TYPE_ADVERTISEMENT, TYPE_WAKEUP, TYPE_RESET
 };
 
 void *createPacket(int type, char source, char dest, int payloadLength, void *payload);
 header getHeader(void *packet);
 void *getPayload(void *packet, int length);
 void multicast(DV &dv, int socketfd);
-void selfcast(DV &dv, int socketfd, int type, char source);
-void multicastResetLower(DV &dv, int socketfd, char dead);
-void multicastResetHigher(DV &dv, int socketfd, char dead);
+void selfcast(DV &dv, int socketfd, int type, char source = 0, char dest = 0, int payloadLength = 0, void *payload = 0);
 
 int main(int argc, char **argv)
 {
@@ -108,7 +106,7 @@ int main(int argc, char **argv)
 		for (;;)
 		{
 			// periodically wake up parent process
-			selfcast(dv, socketfd, TYPE_WAKEUP, dv.getName());
+			selfcast(dv, socketfd, TYPE_WAKEUP);
 			sleep(1);
 		}
 	}
@@ -171,7 +169,6 @@ int main(int argc, char **argv)
 					if (dv.update(payload, h.source))
 					{
 						dv.printAll();
-						//multicast(dv, socketfd);
 					}
 					break;
 				case TYPE_WAKEUP: // perform periodic tasks
@@ -180,23 +177,24 @@ int main(int argc, char **argv)
 						node curNeighbor = neighbors[i];
 						if ((dv.getEntries()[dv.indexOf(curNeighbor.name)].cost() != -1) && dv.timerExpired(neighbors[i]))
 						{
-							selfcast(dv, socketfd, TYPE_RESETLOWER, neighbors[i].name);
-							selfcast(dv, socketfd, TYPE_RESETHIGHER, neighbors[i].name);
+							selfcast(dv, socketfd, TYPE_RESET, dv.getName(), neighbors[i].name, dv.getSize() / sizeof(dv_entry) - 2);
 						}
 					}
 					multicast(dv, socketfd);
 					break;
-				case TYPE_RESETLOWER:
-					cerr << "resetting LOWER because " << h.source << " died" << endl;
-					dv.reset(h.source);
+				case TYPE_RESET:
+					int hopcount = (int)h.length - 1;
+					dv.reset(h.dest);
 					dv.printAll();
-					multicastResetLower(dv, socketfd, h.source);
-					break;
-				case TYPE_RESETHIGHER:
-					cerr << "resetting HIGHER because " << h.source << " died" << endl;
-					dv.reset(h.source);
-					dv.printAll();
-					multicastResetHigher(dv, socketfd, h.source);
+					if (hopcount > 0)
+					{
+						void *forwardPacket = createPacket(TYPE_RESET, dv.getName(), h.dest, hopcount, (void*)0);
+						for (int i = 0; i < neighbors.size(); i++)
+						{
+							if (neighbors[i].name != h.source)
+								sendto(socketfd, forwardPacket, sizeof(header), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
+						}
+					}
 					break;
 			}
 		}
@@ -207,8 +205,12 @@ int main(int argc, char **argv)
 // create a packet with header and payload
 void *createPacket(int type, char source, char dest, int payloadLength, void *payload)
 {
+	int allocatedPayloadLength = payloadLength;
+	if ((type != TYPE_DATA) && (type != TYPE_ADVERTISEMENT))
+		allocatedPayloadLength = 0;
+
 	// create empty packet
-	void *packet = malloc(sizeof(header)+payloadLength);
+	void *packet = malloc(sizeof(header)+allocatedPayloadLength);
 
 	// create header
 	header h;
@@ -219,7 +221,7 @@ void *createPacket(int type, char source, char dest, int payloadLength, void *pa
 
 	// fill in packet
 	memcpy(packet, (void*)&h, sizeof(header));
-	memcpy((void*)((char*)packet+sizeof(header)), payload, payloadLength);
+	memcpy((void*)((char*)packet+sizeof(header)), payload, allocatedPayloadLength);
 
 	return packet;
 }
@@ -253,38 +255,11 @@ void multicast(DV &dv, int socketfd)
 }
 
 // periodically wake yourself up to multicast advertisement
-void selfcast(DV &dv, int socketfd, int type, char source)
+void selfcast(DV &dv, int socketfd, int type, char source, char dest, int payloadLength, void *payload)
 {
-	void *sendPacket = createPacket(type, source, (char)0, (char)0, (void*)0);
+	void *sendPacket = createPacket(type, source, dest, payloadLength, payload);
 	sockaddr_in destAddr = dv.myaddr();
 	sendto(socketfd, sendPacket, sizeof(header), 0, (struct sockaddr *)&destAddr, sizeof(sockaddr_in));
 	free(sendPacket);
 }
 
-void multicastResetLower(DV &dv, int socketfd, char dead)
-{
-	vector<node> neighbors = dv.neighbors();
-	for (int i = 0; i < neighbors.size(); i++)
-	{
-		if (neighbors[i].portno < dv.port())
-		{
-			void *sendPacket = createPacket(TYPE_RESETLOWER, dead, (char)0, (char)0, (void*)0);
-			sendto(socketfd, sendPacket, sizeof(header), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
-			free(sendPacket);
-		}
-	}
-}
-
-void multicastResetHigher(DV &dv, int socketfd, char dead)
-{
-	vector<node> neighbors = dv.neighbors();
-	for (int i = 0; i < neighbors.size(); i++)
-	{
-		if (neighbors[i].portno > dv.port())
-		{
-			void *sendPacket = createPacket(TYPE_RESETHIGHER, dead, (char)0, (char)0, (void*)0);
-			sendto(socketfd, sendPacket, sizeof(header), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
-			free(sendPacket);
-		}
-	}
-}
