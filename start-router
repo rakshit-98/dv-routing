@@ -1,11 +1,17 @@
 #!/bin/bash
 
-echo 'xterm -title "A" -hold -e "./my-router topology.txt A | tee routing-outputA.txt" &
-xterm -title "B" -hold -e "./my-router topology.txt B | tee routing-outputB.txt" &
-xterm -title "C" -hold -e "./my-router topology.txt C | tee routing-outputC.txt" &
-xterm -title "D" -hold -e "./my-router topology.txt D | tee routing-outputD.txt" &
-xterm -title "E" -hold -e "./my-router topology.txt E | tee routing-outputE.txt" &
-xterm -title "F" -hold -e "./my-router topology.txt F | tee routing-outputF.txt" &' | shuf > exec
+echo '
+
+
+
+
+
+xterm -title "A" -hold -e "./my-router topology.txt A | tee routing-outputA.txt" & sleep 1
+xterm -title "B" -hold -e "./my-router topology.txt B | tee routing-outputB.txt" & sleep 1
+xterm -title "C" -hold -e "./my-router topology.txt C | tee routing-outputC.txt" & sleep 1
+xterm -title "D" -hold -e "./my-router topology.txt D | tee routing-outputD.txt" & sleep 1
+xterm -title "E" -hold -e "./my-router topology.txt E | tee routing-outputE.txt" & sleep 1
+xterm -title "F" -hold -e "./my-router topology.txt F | tee routing-outputF.txt" & sleep 1' | shuf > exec
 chmod 777 exec
 ./exec
 rm exec

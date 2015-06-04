@@ -135,15 +135,23 @@ int main(int argc, char **argv)
 					cout << "UDP port in which the packet arrived: " << myPort << endl;
 					if (h.dest != dv.getName()) // only forward if this router is not the destination
 					{
-						cout << "UDP port along which the packet was forwarded: " << dv.routeTo(h.dest).nexthopPort() << endl;
-						cout << "ID of node that packet was forwarded to: " << dv.routeTo(h.dest).nexthopName() << endl;
-						void *forwardPacket = createPacket(TYPE_DATA, h.source, h.dest, h.length, (void*)payload);
-						for (int i = 0; i < neighbors.size(); i++)
+						if (dv.routeTo(h.dest).nexthopPort() == -1)
 						{
-							if (neighbors[i].name == dv.routeTo(h.dest).nexthopName())
-								sendto(socketfd, forwardPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
+							cout << "Error: packet could not be forwarded" << endl;
 						}
-						free(forwardPacket);
+						else
+						{
+							cout << "UDP port along which the packet was forwarded: " << dv.routeTo(h.dest).nexthopPort() << endl;
+							cout << "ID of node that packet was forwarded to: " << dv.routeTo(h.dest).nexthopName() << endl;
+							void *forwardPacket = createPacket(TYPE_DATA, h.source, h.dest, h.length, (void*)payload);
+							for (int i = 0; i < neighbors.size(); i++)
+							{
+								if (neighbors[i].name == dv.routeTo(h.dest).nexthopName())
+									sendto(socketfd, forwardPacket, sizeof(header) + dv.getSize(), 0, (struct sockaddr *)&neighbors[i].addr, sizeof(sockaddr_in));
+							}
+							free(forwardPacket);
+						}
+						cout << endl;
 					}
 					else
 					{
